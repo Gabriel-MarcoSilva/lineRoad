@@ -1,0 +1,116 @@
+
+#include <Servo.h>
+#include <QTRSensors.h>
+
+/*
+  *servo:
+    140° = centro
+    90° = esquerda
+    180° = direita   
+*/  
+//variáveis
+#define portServo 2 //porta servo
+QTRSensors qtr; //instancia um nome para o sensor
+Servo myServo;
+
+const uint8_t SensorCount = 8; //a quantidade de sensores q serão utilizadas
+uint16_t sensorValues[SensorCount]; //array das portas
+
+int val; //vai receber o valor do sensor
+
+void setup() {
+  myServo.attach(portServo); //indicação da porta do servo
+  myServo.write(140); // o servo inicia com o angulo de 90°
+
+  qtr.setTypeAnalog();
+  qtr.setSensorPins((const uint8_t[]){A0, A1, A2, A3, A4, A5, A6, A7}, SensorCount);
+  qtr.setEmitterPin(3);
+
+  delay(500);
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH); // turn on Arduino's LED to indicate we are in calibration mode
+
+  // analogRead() takes about 0.1 ms on an AVR.
+  // 0.1 ms per sensor * 4 samples per sensor read (default) * 6 sensors
+  // * 10 reads per calibrate() call = ~24 ms per calibrate() call.
+  // Call calibrate() 400 times to make calibration take about 10 seconds.
+  for (uint16_t i = 0; i < 400; i++)
+  {
+    qtr.calibrate();
+  }
+  digitalWrite(LED_BUILTIN, LOW); // turn off Arduino's LED to indicate we are through with calibration
+
+  // print the calibration minimum values measured when emitters were on
+  Serial.begin(9600);
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.minimum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+
+  // print the calibration maximum values measured when emitters were on
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+    Serial.print(qtr.calibrationOn.maximum[i]);
+    Serial.print(' ');
+  }
+  Serial.println();
+  Serial.println();
+  delay(1000);
+}
+
+void loop() {
+
+// read calibrated sensor values and obtain a measure of the line position
+  // from 0 to 5000 (for a white line, use readLineWhite() instead)
+  uint16_t position = qtr.readLineBlack(sensorValues);  
+  // print the sensor values as numbers from 0 to 1000, where 0 means maximum
+  // reflectance and 1000 means minimum reflectance, followed by the line
+  // position
+  for (uint8_t i = 0; i < SensorCount; i++)
+  {
+     int direita = (sensorValues[2] + sensorValues[1])/2;
+     int esquerda = (sensorValues[6] + sensorValues[5])/2;
+    // Serial.print("R: ");
+    // Serial.print("\t");    
+    // Serial.print("L: ");
+    // Serial.println();
+    // Serial.print(direita);
+    // Serial.print("\t");    
+    // Serial.print(esquerda);
+    // Serial.println();
+    
+    if(esquerda <= 450){
+      Serial.print("L: \t");
+      Serial.print(esquerda);
+      Serial.println();
+      myServo.write(90);
+    }
+    else if(direita <= 450){
+      Serial.print("R: \t");
+      Serial.print(direita);
+      Serial.println();
+      myServo.write(180);
+    }
+    else{
+      myServo.write(140);
+      Serial.print("R: ");
+      Serial.print("\t");    
+      Serial.print("L: ");
+      Serial.println();
+      Serial.print(direita);
+      Serial.print("\t");    
+      Serial.print(esquerda);
+      Serial.println();
+    }
+   //fazer o val receber o valor médio dos dois sensores laterais de forma a fazer o servo girar moderadamente ou bruscamente 
+  }
+
+  delay(250);
+  
+  //val = analogRead(pot); //lê o valor da porta do potenciometro e armazena em val
+  //val = map(val, 0 ,1023, 0, 180); //mapeia o valor da variável; se o potenciometro for 0 >> servo tem angulo 0°; se o potenciometro for o máximo (1023) >> o servo gira 180°
+  //myServo.write(val); //rotaciona o servo em relação ao valor da variavel
+  delay(15); //deley pra dar tempo de girar 
+}
